@@ -25,3 +25,5 @@ If you have a patch or have stumbled upon an issue with WooCommerce core, you ca
 
 ## Contributing new features to the WooCommerce REST API
 If you'd like to add a feature to the next version of the REST API, contribute here: https://github.com/woocommerce/wc-api-dev
+
+
