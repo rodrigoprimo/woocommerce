@@ -21,6 +21,10 @@ if [ $1 == 'before' ]; then
 		phpenv config-rm xdebug.ini
 	fi
 
+	# Configure environment to run e2e tests
+	if [[ ${RUN_E2E_TESTS} == 1 ]]; then
+		npm install
+	fi
 fi
 
 if [ $1 == 'after' ]; then

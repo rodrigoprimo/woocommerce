@@ -22,8 +22,11 @@ matrix:
     dist: precise
   - php: 7.1
     env: WP_VERSION=latest WP_MULTISITE=0 RUN_CODE_COVERAGE=1
+  - php: 7.1
+    env: WP_VERSION=latest WP_MULTISITE=0 RUN_E2E_TESTS=1
   allow_failures:
   - env: WP_VERSION=latest WP_MULTISITE=0 RUN_CODE_COVERAGE=1
+  - env: WP_VERSION=latest WP_MULTISITE=0 RUN_E2E_TESTS=1
 
 before_script:
   - export PATH="$HOME/.composer/vendor/bin:$PATH"
@@ -32,7 +35,7 @@ before_script:
   - bash tests/bin/travis.sh before
 
 script:
-  - bash tests/bin/phpunit.sh
+  - bash tests/bin/tests.sh
   - bash tests/bin/phpcs.sh
 
 after_script:
