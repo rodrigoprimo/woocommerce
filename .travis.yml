@@ -2,6 +2,11 @@ language: php
 
 sudo: false
 
+cache:
+  directories:
+    - node_modules
+    - vendor
+
 # Test main supported versions of PHP against latest WP.
 php:
   - 5.6
