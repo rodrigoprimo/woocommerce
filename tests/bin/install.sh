@@ -44,7 +44,7 @@ set -ex
 
 install_wp() {
 
-	if [ -d $WP_CORE_DIR ]; then
+	if [[ -d $WP_CORE_DIR && $(ls -A $WP_CORE_DIR) ]]; then
 		return;
 	fi
 
@@ -77,7 +77,7 @@ install_test_suite() {
 	fi
 
 	# set up testing suite if it doesn't yet exist
-	if [ ! -d $WP_TESTS_DIR ]; then
+	if [[ ! -d $WP_TESTS_DIR || ! $(ls -A $WP_TESTS_DIR) ]]; then
 		# set up testing suite
 		mkdir -p $WP_TESTS_DIR
 		svn co --quiet https://develop.svn.wordpress.org/${WP_TESTS_TAG}/tests/phpunit/includes/ $WP_TESTS_DIR/includes

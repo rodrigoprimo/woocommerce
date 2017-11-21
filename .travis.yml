@@ -6,6 +6,8 @@ cache:
   directories:
     - node_modules
     - vendor
+    - /tmp/wordpress
+    - /tmp/wordpress-tests-lib
 
 # Test main supported versions of PHP against latest WP.
 php:
