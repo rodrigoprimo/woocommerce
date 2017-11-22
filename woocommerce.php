@@ -31,6 +31,10 @@ if ( ! class_exists( 'WooCommerce' ) ) {
 	include_once dirname( __FILE__ ) . '/includes/class-woocommerce.php';
 }
 
+if ( false ) {
+	exit;
+}
+
 /**
  * Main instance of WooCommerce.
  *
