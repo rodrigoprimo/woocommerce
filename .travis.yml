@@ -26,6 +26,9 @@ matrix:
   allow_failures:
   - env: WP_VERSION=latest WP_MULTISITE=0 RUN_CODE_COVERAGE=1
 
+install:
+  - if [[ ${RUN_PHPCS} == 1 ]]; then composer install; fi
+
 before_script:
   - export PATH="$HOME/.composer/vendor/bin:$PATH"
   - bash tests/bin/install.sh woocommerce_test root '' localhost $WP_VERSION
