@@ -1,10 +1,10 @@
 language: php
 
-addons:
-  chrome: stable
-  apt:
-    packages:
-      - nginx
+#addons:
+#  chrome: stable
+#  apt:
+#    packages:
+#      - nginx
 
 sudo: false
 
@@ -36,13 +36,13 @@ matrix:
 before_script:
   - phpenv config-rm xdebug.ini
   - export PATH="$HOME/.composer/vendor/bin:$PATH"
-  - bash tests/bin/install.sh woocommerce_test root '' localhost $WP_VERSION
-  - bash tests/bin/travis.sh before
+  - #bash tests/bin/install.sh woocommerce_test root '' localhost $WP_VERSION
+  - #bash tests/bin/travis.sh before
 
 script:
-  - bash tests/bin/phpunit.sh
-  - bash tests/bin/phpcs.sh
-  - bash tests/bin/run-e2e-CI.sh
+  - #bash tests/bin/phpunit.sh
+  - #bash tests/bin/phpcs.sh
+  - travis_retry bash tests/bin/run-e2e-CI.sh
 
 after_script:
   - bash tests/bin/travis.sh after

@@ -10,5 +10,5 @@ if [[ ${RUN_E2E} == 1 ]]; then
  	sleep 3
 
 	# Run the tests
-	npm test
+	bash -c 'echo hi; exit 1'
 fi
