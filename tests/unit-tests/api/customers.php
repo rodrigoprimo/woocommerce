@@ -58,6 +58,7 @@ class Customers extends WC_REST_Unit_Test_Case {
 
 		$this->assertEquals( 200, $response->get_status() );
 		$this->assertEquals( 2, count( $customers ) );
+		$this->assertNotEquals( '1970-01-01T00:00:00', $customers[0]['date_created'] );
 
 		$this->assertContains(
 			array(
