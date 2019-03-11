@@ -85,6 +85,10 @@ class WC_Admin {
 		include_once dirname( __FILE__ ) . '/helper/class-wc-helper-plugin-info.php';
 		include_once dirname( __FILE__ ) . '/helper/class-wc-helper-compat.php';
 		include_once dirname( __FILE__ ) . '/helper/class-wc-helper.php';
+
+		// Marketplace suggestions & related REST API.
+		include_once dirname( __FILE__ ) . '/marketplace-suggestions/class-wc-marketplace-suggestions.php';
+		include_once dirname( __FILE__ ) . '/marketplace-suggestions/class-wc-marketplace-updater.php';
 	}
 
 	/**
@@ -168,7 +172,7 @@ class WC_Admin {
 	public function prevent_admin_access() {
 		$prevent_access = false;
 
-		if ( 'yes' === get_option( 'woocommerce_lock_down_admin', 'yes' ) && ! is_ajax() && basename( $_SERVER['SCRIPT_FILENAME'] ) !== 'admin-post.php' ) {
+		if ( apply_filters( 'woocommerce_disable_admin_bar', true ) && ! is_ajax() && basename( $_SERVER["SCRIPT_FILENAME"] ) !== 'admin-post.php' ) {
 			$has_cap     = false;
 			$access_caps = array( 'edit_posts', 'manage_woocommerce', 'view_admin_dashboard' );
 

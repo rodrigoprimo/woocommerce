@@ -124,6 +124,12 @@ class WC_Install {
 			'wc_update_354_modify_shop_manager_caps',
 			'wc_update_354_db_version',
 		),
+		'3.6.0' => array(
+			'wc_update_360_product_lookup_tables',
+			'wc_update_360_term_meta',
+			'wc_update_360_downloadable_product_permissions_index',
+			'wc_update_360_db_version',
+		),
 	);
 
 	/**
@@ -144,8 +150,6 @@ class WC_Install {
 		add_filter( 'plugin_row_meta', array( __CLASS__, 'plugin_row_meta' ), 10, 2 );
 		add_filter( 'wpmu_drop_tables', array( __CLASS__, 'wpmu_drop_tables' ) );
 		add_filter( 'cron_schedules', array( __CLASS__, 'cron_schedules' ) );
-		add_action( 'woocommerce_plugin_background_installer', array( __CLASS__, 'background_installer' ), 10, 2 );
-		add_action( 'woocommerce_theme_background_installer', array( __CLASS__, 'theme_background_installer' ), 10, 1 );
 	}
 
 	/**
@@ -422,17 +426,17 @@ class WC_Install {
 				'cart'      => array(
 					'name'    => _x( 'cart', 'Page slug', 'woocommerce' ),
 					'title'   => _x( 'Cart', 'Page title', 'woocommerce' ),
-					'content' => '[' . apply_filters( 'woocommerce_cart_shortcode_tag', 'woocommerce_cart' ) . ']',
+					'content' => '<!-- wp:shortcode -->[' . apply_filters( 'woocommerce_cart_shortcode_tag', 'woocommerce_cart' ) . ']<!-- /wp:shortcode -->',
 				),
 				'checkout'  => array(
 					'name'    => _x( 'checkout', 'Page slug', 'woocommerce' ),
 					'title'   => _x( 'Checkout', 'Page title', 'woocommerce' ),
-					'content' => '[' . apply_filters( 'woocommerce_checkout_shortcode_tag', 'woocommerce_checkout' ) . ']',
+					'content' => '<!-- wp:shortcode -->[' . apply_filters( 'woocommerce_checkout_shortcode_tag', 'woocommerce_checkout' ) . ']<!-- /wp:shortcode -->',
 				),
 				'myaccount' => array(
 					'name'    => _x( 'my-account', 'Page slug', 'woocommerce' ),
 					'title'   => _x( 'My account', 'Page title', 'woocommerce' ),
-					'content' => '[' . apply_filters( 'woocommerce_my_account_shortcode_tag', 'woocommerce_my_account' ) . ']',
+					'content' => '<!-- wp:shortcode -->[' . apply_filters( 'woocommerce_my_account_shortcode_tag', 'woocommerce_my_account' ) . ']<!-- /wp:shortcode -->',
 				),
 			)
 		);
@@ -536,7 +540,6 @@ class WC_Install {
 	 *
 	 * Tables:
 	 *      woocommerce_attribute_taxonomies - Table for storing attribute taxonomies - these are user defined
-	 *      woocommerce_termmeta - Term meta table - sadly WordPress does not have termmeta so we need our own
 	 *      woocommerce_downloadable_product_permissions - Table for storing user and guest download permissions.
 	 *          KEY(order_id, product_id, download_id) used for organizing downloads on the My Account page
 	 *      woocommerce_order_items - Order line items are stored in a table to make them easily queryable for reports
@@ -694,7 +697,8 @@ CREATE TABLE {$wpdb->prefix}woocommerce_downloadable_product_permissions (
   PRIMARY KEY  (permission_id),
   KEY download_order_key_product (product_id,order_id,order_key(16),download_id),
   KEY download_order_product (download_id,order_id,product_id),
-  KEY order_id (order_id)
+  KEY order_id (order_id),
+  KEY user_order_remaining_expires (user_id,order_id,downloads_remaining,access_expires)
 ) $collate;
 CREATE TABLE {$wpdb->prefix}woocommerce_order_items (
   order_item_id BIGINT UNSIGNED NOT NULL auto_increment,
@@ -815,28 +819,30 @@ CREATE TABLE {$wpdb->prefix}wc_download_log (
   permission_id BIGINT UNSIGNED NOT NULL,
   user_id BIGINT UNSIGNED NULL,
   user_ip_address VARCHAR(100) NULL DEFAULT '',
-  PRIMARY KEY (download_log_id),
+  PRIMARY KEY  (download_log_id),
   KEY permission_id (permission_id),
   KEY timestamp (timestamp)
 ) $collate;
+CREATE TABLE {$wpdb->prefix}wc_product_meta_lookup (
+  `product_id` bigint(20) NOT NULL,
+  `sku` varchar(100) NULL default '',
+  `virtual` tinyint(1) NULL default 0,
+  `downloadable` tinyint(1) NULL default 0,
+  `min_price` decimal(10,2) NULL default NULL,
+  `max_price` decimal(10,2) NULL default NULL,
+  `stock_quantity` double NULL default NULL,
+  `stock_status` varchar(100) NULL default 'instock',
+  `rating_count` bigint(20) NULL default 0,
+  `average_rating` decimal(3,2) NULL default 0.00,
+  `total_sales` bigint(20) NULL default 0,
+  PRIMARY KEY  (`product_id`),
+  KEY `virtual` (`virtual`),
+  KEY `downloadable` (`downloadable`),
+  KEY `stock_status` (`stock_status`),
+  KEY `stock_quantity` (`stock_quantity`),
+  KEY min_max_price (`min_price`, `max_price`)
+  ) $collate;
 		";
-
-		/**
-		 * Term meta is only needed for old installs and is now @deprecated by WordPress term meta.
-		 */
-		if ( ! function_exists( 'get_term_meta' ) ) {
-			$tables .= "
-CREATE TABLE {$wpdb->prefix}woocommerce_termmeta (
-  meta_id BIGINT UNSIGNED NOT NULL auto_increment,
-  woocommerce_term_id BIGINT UNSIGNED NOT NULL,
-  meta_key varchar(255) default NULL,
-  meta_value longtext NULL,
-  PRIMARY KEY  (meta_id),
-  KEY woocommerce_term_id (woocommerce_term_id),
-  KEY meta_key (meta_key(32))
-) $collate;
-			";
-		}
 
 		return $tables;
 	}
@@ -852,6 +858,7 @@ CREATE TABLE {$wpdb->prefix}woocommerce_termmeta (
 
 		$tables = array(
 			"{$wpdb->prefix}wc_download_log",
+			"{$wpdb->prefix}wc_product_meta_lookup",
 			"{$wpdb->prefix}wc_webhooks",
 			"{$wpdb->prefix}woocommerce_api_keys",
 			"{$wpdb->prefix}woocommerce_attribute_taxonomies",
@@ -868,11 +875,6 @@ CREATE TABLE {$wpdb->prefix}woocommerce_termmeta (
 			"{$wpdb->prefix}woocommerce_tax_rate_locations",
 			"{$wpdb->prefix}woocommerce_tax_rates",
 		);
-
-		if ( ! function_exists( 'get_term_meta' ) ) {
-			// This table is only needed for old installs and is now @deprecated by WordPress term meta.
-			$tables[] = "{$wpdb->prefix}woocommerce_termmeta";
-		}
 
 		/**
 		 * Filter the list of known WooCommerce tables.
@@ -1130,16 +1132,17 @@ CREATE TABLE {$wpdb->prefix}woocommerce_termmeta (
 	private static function create_placeholder_image() {
 		$placeholder_image = get_option( 'woocommerce_placeholder_image', 0 );
 
-		if ( ! is_numeric( $placeholder_image ) ) {
-			return;
-		}
-
-		if ( ! empty( $placeholder_image ) && is_numeric( $placeholder_image ) && wp_attachment_is_image( $placeholder_image ) ) {
-			return;
+		// Validate current setting if set. If set, return.
+		if ( ! empty( $placeholder_image ) ) {
+			if ( ! is_numeric( $placeholder_image ) ) {
+				return;
+			} elseif ( $placeholder_image && wp_attachment_is_image( $placeholder_image ) ) {
+				return;
+			}
 		}
 
 		$upload_dir = wp_upload_dir();
-		$source     = WC()->plugin_path() . '/assets/images/placeholder.png';
+		$source     = WC()->plugin_path() . '/assets/images/placeholder-attachment.png';
 		$filename   = $upload_dir['basedir'] . '/woocommerce-placeholder.png';
 
 		if ( ! file_exists( $filename ) ) {
@@ -1234,7 +1237,6 @@ CREATE TABLE {$wpdb->prefix}woocommerce_termmeta (
 	public static function background_installer( $plugin_to_install_id, $plugin_to_install ) {
 		// Explicitly clear the event.
 		$args = func_get_args();
-		wp_clear_scheduled_hook( 'woocommerce_plugin_background_installer', $args );
 
 		if ( ! empty( $plugin_to_install['repo-slug'] ) ) {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -1394,7 +1396,6 @@ CREATE TABLE {$wpdb->prefix}woocommerce_termmeta (
 	public static function theme_background_installer( $theme_slug ) {
 		// Explicitly clear the event.
 		$args = func_get_args();
-		wp_clear_scheduled_hook( 'woocommerce_theme_background_installer', $args );
 
 		if ( ! empty( $theme_slug ) ) {
 			// Suppress feedback.

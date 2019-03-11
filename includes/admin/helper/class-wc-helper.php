@@ -836,7 +836,7 @@ class WC_Helper {
 		$request = WC_Helper_API::post(
 			'activate', array(
 				'authenticated' => true,
-				'body'          => json_encode(
+				'body'          => wp_json_encode(
 					array(
 						'product_key' => $product_key,
 					)
@@ -888,7 +888,7 @@ class WC_Helper {
 		$request = WC_Helper_API::post(
 			'deactivate', array(
 				'authenticated' => true,
-				'body'          => json_encode(
+				'body'          => wp_json_encode(
 					array(
 						'product_key' => $product_key,
 					)
@@ -1007,7 +1007,7 @@ class WC_Helper {
 	}
 
 	/**
-	 * Obtain a list of locally installed Woo extensions.
+	 * Obtain a list of data about locally installed Woo extensions.
 	 */
 	public static function get_local_woo_plugins() {
 		if ( ! function_exists( 'get_plugins' ) ) {
@@ -1046,6 +1046,7 @@ class WC_Helper {
 			$data['_product_id']      = absint( $product_id );
 			$data['_file_id']         = $file_id;
 			$data['_type']            = 'plugin';
+			$data['slug']             = dirname( $filename );
 			$woo_plugins[ $filename ] = $data;
 		}
 
@@ -1190,7 +1191,7 @@ class WC_Helper {
 		$request = WC_Helper_API::post(
 			'activate', array(
 				'authenticated' => true,
-				'body'          => json_encode(
+				'body'          => wp_json_encode(
 					array(
 						'product_key' => $subscription['product_key'],
 					)
@@ -1256,7 +1257,7 @@ class WC_Helper {
 			$request = WC_Helper_API::post(
 				'deactivate', array(
 					'authenticated' => true,
-					'body'          => json_encode(
+					'body'          => wp_json_encode(
 						array(
 							'product_key' => $subscription['product_key'],
 						)

@@ -384,13 +384,13 @@ jQuery( function ( $ ) {
 			if ( value != null ) {
 				wc_meta_boxes_order_items.block();
 
-				var data = {
+				var data = $.extend( {}, wc_meta_boxes_order_items.get_taxable_address(), {
 					action   : 'woocommerce_add_coupon_discount',
 					dataType : 'json',
 					order_id : woocommerce_admin_meta_boxes.post_id,
 					security : woocommerce_admin_meta_boxes.order_item_nonce,
 					coupon   : value
-				};
+				} );
 
 				$.post( woocommerce_admin_meta_boxes.ajax_url, data, function( response ) {
 					if ( response.success ) {
@@ -411,13 +411,13 @@ jQuery( function ( $ ) {
 			var $this = $( this );
 			wc_meta_boxes_order_items.block();
 
-			var data = {
+			var data = $.extend( {}, wc_meta_boxes_order_items.get_taxable_address(), {
 				action : 'woocommerce_remove_order_coupon',
 				dataType : 'json',
 				order_id : woocommerce_admin_meta_boxes.post_id,
 				security : woocommerce_admin_meta_boxes.order_item_nonce,
 				coupon : $this.data( 'code' )
-			};
+			} );
 
 			$.post( woocommerce_admin_meta_boxes.ajax_url, data, function( response ) {
 				if ( response.success ) {
@@ -560,6 +560,13 @@ jQuery( function ( $ ) {
 						if ( response.success ) {
 							$( '#woocommerce-order-items' ).find( '.inside' ).empty();
 							$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+
+							// Update notes.
+							if ( response.data.notes_html ) {
+								$( 'ul.order_notes' ).empty();
+								$( 'ul.order_notes' ).append( $( response.data.notes_html ).find( 'li' ) );
+							}
+
 							wc_meta_boxes_order_items.reloaded_items();
 							wc_meta_boxes_order_items.unblock();
 						} else {
@@ -641,7 +648,7 @@ jQuery( function ( $ ) {
 					items:    $( 'table.woocommerce_order_items :input[name], .wc-order-totals-items :input[name]' ).serialize(),
 					security: woocommerce_admin_meta_boxes.calc_totals_nonce
 				} );
-				
+
 				$( document.body ).trigger( 'order-totals-recalculate-before', data );
 
 				$.ajax({
@@ -680,10 +687,22 @@ jQuery( function ( $ ) {
 				data: data,
 				type: 'POST',
 				success: function( response ) {
-					$( '#woocommerce-order-items' ).find( '.inside' ).empty();
-					$( '#woocommerce-order-items' ).find( '.inside' ).append( response );
-					wc_meta_boxes_order_items.reloaded_items();
-					wc_meta_boxes_order_items.unblock();
+					if ( response.success ) {
+						$( '#woocommerce-order-items' ).find( '.inside' ).empty();
+						$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+
+						// Update notes.
+						if ( response.data.notes_html ) {
+							$( 'ul.order_notes' ).empty();
+							$( 'ul.order_notes' ).append( $( response.data.notes_html ).find( 'li' ) );
+						}
+
+						wc_meta_boxes_order_items.reloaded_items();
+						wc_meta_boxes_order_items.unblock();
+					} else {
+						wc_meta_boxes_order_items.unblock();
+						window.alert( response.data.error );
+					}
 				}
 			});
 
@@ -978,6 +997,13 @@ jQuery( function ( $ ) {
 						if ( response.success ) {
 							$( '#woocommerce-order-items' ).find( '.inside' ).empty();
 							$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+
+							// Update notes.
+							if ( response.data.notes_html ) {
+								$( 'ul.order_notes' ).empty();
+								$( 'ul.order_notes' ).append( $( response.data.notes_html ).find( 'li' ) );
+							}
+
 							wc_meta_boxes_order_items.reloaded_items();
 							wc_meta_boxes_order_items.unblock();
 						} else {
