@@ -849,7 +849,6 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 	public function get_on_sale_products() {
 		global $wpdb;
 
-		$decimals                    = absint( wc_get_price_decimals() );
 		$exclude_term_ids            = array();
 		$outofstock_join             = '';
 		$outofstock_where            = '';
@@ -867,36 +866,32 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 
 		// Fetch a list of non-published parent products and exlude them, quicker than joining in the main query below.
 		$non_published_products = $wpdb->get_col(
-			"SELECT post.ID as id FROM `$wpdb->posts` AS post
-			WHERE post.post_type = 'product'
-			AND post.post_parent = 0
-			AND post.post_status != 'publish'"
+			"
+			SELECT posts.ID as id FROM `$wpdb->posts` AS posts
+			WHERE posts.post_type = 'product'
+			AND posts.post_parent = 0
+			AND posts.post_status != 'publish'
+			"
 		);
 		if ( 0 < count( $non_published_products ) ) {
-			$non_published_where = ' AND post.post_parent NOT IN ( ' . implode( ',', $non_published_products ) . ')';
+			$non_published_where = ' AND posts.post_parent NOT IN ( ' . implode( ',', $non_published_products ) . ')';
 		}
 
 		return $wpdb->get_results(
 			// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
-			$wpdb->prepare(
-				"SELECT post.ID as id, post.post_parent as parent_id FROM `$wpdb->posts` AS post
-				LEFT JOIN `$wpdb->postmeta` AS meta ON post.ID = meta.post_id
-				LEFT JOIN `$wpdb->postmeta` AS meta2 ON post.ID = meta2.post_id
-				$outofstock_join
-				WHERE post.post_type IN ( 'product', 'product_variation' )
-					AND post.post_status = 'publish'
-					AND meta.meta_key = '_sale_price'
-					AND meta2.meta_key = '_price'
-					AND CAST( meta.meta_value AS DECIMAL ) >= 0
-					AND CAST( meta.meta_value AS CHAR ) != ''
-					AND CAST( meta.meta_value AS DECIMAL( 10, %d ) ) = CAST( meta2.meta_value AS DECIMAL( 10, %d ) )
-					$outofstock_where
-					$non_published_where
-				GROUP BY post.ID",
-				$decimals,
-				$decimals
-			)
-			// phpcs:enable
+			"
+			SELECT posts.ID as id, posts.post_parent as parent_id
+			FROM {$wpdb->posts} AS posts
+			INNER JOIN {$wpdb->wc_product_meta_lookup} AS lookup ON posts.ID = lookup.product_id
+			$outofstock_join
+			WHERE posts.post_type IN ( 'product', 'product_variation' )
+			AND posts.post_status = 'publish'
+			AND lookup.onsale = 1
+			$outofstock_where
+			$non_published_where
+			GROUP BY posts.ID
+			"
+			// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 		);
 	}
 
@@ -949,14 +944,17 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		// phpcs:ignore WordPress.VIP.DirectDatabaseQuery.DirectQuery
 		return $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT $wpdb->posts.ID
-				FROM $wpdb->posts
-				LEFT JOIN $wpdb->postmeta ON ( $wpdb->posts.ID = $wpdb->postmeta.post_id )
-				WHERE $wpdb->posts.post_type IN ( 'product', 'product_variation' )
-					AND $wpdb->posts.post_status != 'trash'
-					AND $wpdb->postmeta.meta_key = '_sku' AND $wpdb->postmeta.meta_value = %s
-					AND $wpdb->postmeta.post_id <> %d
-				LIMIT 1",
+				"
+				SELECT posts.ID
+				FROM {$wpdb->posts} as posts
+				INNER JOIN {$wpdb->wc_product_meta_lookup} AS lookup ON posts.ID = lookup.product_id
+				WHERE
+				posts.post_type IN ( 'product', 'product_variation' )
+				AND posts.post_status != 'trash'
+				AND lookup.sku = %s
+				AND lookup.product_id <> %d
+				LIMIT 1
+				",
 				wp_slash( $sku ),
 				$product_id
 			)
@@ -976,14 +974,16 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		// phpcs:ignore WordPress.VIP.DirectDatabaseQuery.DirectQuery
 		$id = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT posts.ID
-				FROM $wpdb->posts AS posts
-				LEFT JOIN $wpdb->postmeta AS postmeta ON ( posts.ID = postmeta.post_id )
-				WHERE posts.post_type IN ( 'product', 'product_variation' )
-					AND posts.post_status != 'trash'
-					AND postmeta.meta_key = '_sku'
-					AND postmeta.meta_value = %s
-				LIMIT 1",
+				"
+				SELECT posts.ID
+				FROM {$wpdb->posts} as posts
+				INNER JOIN {$wpdb->wc_product_meta_lookup} AS lookup ON posts.ID = lookup.product_id
+				WHERE
+				posts.post_type IN ( 'product', 'product_variation' )
+				AND posts.post_status != 'trash'
+				AND lookup.sku = %s
+				LIMIT 1
+				",
 				$sku
 			)
 		);
@@ -1038,7 +1038,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 					AND postmeta.meta_value > 0
 					AND postmeta.meta_value < %s
 					AND postmeta_2.meta_value != postmeta_3.meta_value",
-				current_time( 'timestamp', true ) - DAY_IN_SECONDS
+				current_time( 'timestamp', true )
 			)
 		);
 	}
@@ -1284,6 +1284,8 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 		$wpdb->query( $sql );
 
 		wp_cache_delete( $product_id_with_stock, 'post_meta' );
+
+		$this->update_lookup_table( $product_id_with_stock, 'wc_product_meta_lookup' );
 
 		/**
 		 * Fire an action for this direct update so it can be detected by other code.
@@ -1883,6 +1885,8 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 			$price_meta   = (array) get_post_meta( $id, '_price', false );
 			$manage_stock = get_post_meta( $id, '_manage_stock', true );
 			$stock        = 'yes' === $manage_stock ? wc_stock_amount( get_post_meta( $id, '_stock', true ) ) : null;
+			$price        = wc_format_decimal( get_post_meta( $id, '_price', true ) );
+			$sale_price   = wc_format_decimal( get_post_meta( $id, '_sale_price', true ) );
 			return array(
 				'product_id'     => absint( $id ),
 				'sku'            => get_post_meta( $id, '_sku', true ),
@@ -1890,6 +1894,7 @@ class WC_Product_Data_Store_CPT extends WC_Data_Store_WP implements WC_Object_Da
 				'downloadable'   => 'yes' === get_post_meta( $id, '_downloadable', true ) ? 1 : 0,
 				'min_price'      => reset( $price_meta ),
 				'max_price'      => end( $price_meta ),
+				'onsale'         => $sale_price && $price === $sale_price ? 1 : 0,
 				'stock_quantity' => $stock,
 				'stock_status'   => get_post_meta( $id, '_stock_status', true ),
 				'rating_count'   => array_sum( (array) get_post_meta( $id, '_wc_rating_count', true ) ),

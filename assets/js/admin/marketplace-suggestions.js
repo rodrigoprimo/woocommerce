@@ -38,11 +38,18 @@
 			// if this is a high-use area, delay new suggestion that area for a short while
 			var highUseSuggestionContexts = [ 'products-list-inline' ];
 			if ( _.contains( highUseSuggestionContexts, context ) ) {
-				Cookies.set( 'woocommerce_snooze_products_list_suggestions', '1', { expires: 2 } );
+				// snooze suggestions in that area for 2 days
+				var contextSnoozeCookie = 'woocommerce_snooze_suggestions__' + context;
+				Cookies.set( contextSnoozeCookie, 'true', { expires: 2 } );
+
+				// keep track of how often this area gets dismissed in a cookie
+				var contextDismissalCountCookie = 'woocommerce_dismissed_suggestions__' + context;
+				var previousDismissalsInThisContext = parseInt( Cookies.get( contextDismissalCountCookie ), 10 ) || 0;
+				Cookies.set( contextDismissalCountCookie, previousDismissalsInThisContext + 1, { expires: 31 } );
 			}
 
 			window.wcTracks.recordEvent( 'marketplace_suggestion_dismissed', {
-				suggestionSlug: suggestionSlug
+				suggestion_slug: suggestionSlug
 			} );
 		}
 
@@ -108,7 +115,7 @@
 
 			linkoutButton.onclick = function() {
 				window.wcTracks.recordEvent( 'marketplace_suggestion_clicked', {
-					suggestionSlug: slug
+					suggestion_slug: slug
 				} );
 			};
 
@@ -305,12 +312,22 @@
 				'.marketplace-suggestions-container[data-marketplace-suggestions-context="product-edit-meta-tab-body"]'
 			).children();
 			if ( 0 >= productMetaboxSuggestions.length ) {
-				$( '.marketplace-suggestions-container[data-marketplace-suggestions-context="product-edit-meta-tab-header"]' ).slideUp();
-				$( '.marketplace-suggestions-container[data-marketplace-suggestions-context="product-edit-meta-tab-body"]' ).fadeOut();
+				var metaboxSuggestionsUISelector =
+					'.marketplace-suggestions-container[data-marketplace-suggestions-context="product-edit-meta-tab-body"]';
+				metaboxSuggestionsUISelector +=
+					', .marketplace-suggestions-container[data-marketplace-suggestions-context="product-edit-meta-tab-header"]';
+				metaboxSuggestionsUISelector +=
+					', .marketplace-suggestions-container[data-marketplace-suggestions-context="product-edit-meta-tab-footer"]';
+				$( metaboxSuggestionsUISelector ).fadeOut( {
+					complete: function() {
+						$( '.marketplace-suggestions-metabox-nosuggestions-placeholder' ).fadeIn();
+					}
+				} );
+
 			}
 		}
 
-		function refreshBannerColspanForScreenOptions( content ) {
+		function refreshBannerColspanForScreenOptions() {
 			$( '#show-settings-link' ).on( 'focus.scroll-into-view', function() {
 				$( '.marketplace-table-banner-td' ).attr( 'colspan', getTableBannerColspan() );
 			});
@@ -363,7 +380,7 @@
 					usedSuggestionsContexts.push( context );
 
 					window.wcTracks.recordEvent( 'marketplace_suggestion_displayed', {
-						suggestionSlug: suggestionsToDisplay[ i ].slug
+						suggestion_slug: suggestionsToDisplay[ i ].slug
 					} );
 				}
 			} );
@@ -374,9 +391,18 @@
 					var context = 'products-list-inline';
 
 					// product list banner suggestion is temporarily suppressed after a recent dismissal
-					if ( Cookies.get( 'woocommerce_snooze_products_list_suggestions' ) ) {
+					var contextSnoozeCookie = 'woocommerce_snooze_suggestions__' + context;
+					if ( Cookies.get( contextSnoozeCookie ) ) {
 						return;
 					}
+
+					// product list banner suggestion has been dismissed repeatedly – give user a break
+					// note that this is longer term but still temporary, based on the expiry of the cookie
+					var hideSuggestionsDismissalThreshold = 5;
+					if ( parseInt( Cookies.get( 'contextDismissalCountCookie' ), 10 ) > hideSuggestionsDismissalThreshold ) {
+						return;
+					}
+
 
 					// find promotions that target this context
 					var promos = getRelevantPromotions( marketplaceSuggestionsApiData, context );
@@ -428,7 +454,7 @@
 						refreshBannerColspanForScreenOptions( content );
 
 						window.wcTracks.recordEvent( 'marketplace_suggestion_displayed', {
-							suggestionSlug: suggestionToDisplay.slug
+							suggestion_slug: suggestionToDisplay.slug
 						} );
 					}
 				} );

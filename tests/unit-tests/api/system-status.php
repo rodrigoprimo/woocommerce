@@ -238,15 +238,15 @@ class WC_Tests_REST_System_Status extends WC_REST_Unit_Test_Case {
 		$this->assertEquals( count( $raw_tools ), count( $data ) );
 		$this->assertContains(
 			array(
-				'id'          => 'reset_tracking',
-				'name'        => 'Reset usage tracking',
-				'action'      => 'Reset',
-				'description' => 'This will reset your usage tracking settings, causing it to show the opt-in banner again and not sending any data.',
+				'id'          => 'regenerate_thumbnails',
+				'name'        => 'Regenerate shop thumbnails',
+				'action'      => 'Regenerate',
+				'description' => 'This will regenerate all shop thumbnails to match your theme and/or image settings.',
 				'_links'      => array(
 					'item' => array(
 						array(
-							'href'       => rest_url( '/wc/v3/system_status/tools/reset_tracking' ),
-							'embeddable' => true,
+							'href'       => rest_url( '/wc/v3/system_status/tools/regenerate_thumbnails' ),
+							'embeddable' => 1,
 						),
 					),
 				),
@@ -266,8 +266,8 @@ class WC_Tests_REST_System_Status extends WC_REST_Unit_Test_Case {
 		$this->assertEquals( count( $raw_tools ), count( $data ) );
 		$this->assertContains(
 			array(
-				'id'   => 'reset_tracking',
-				'name' => 'Reset usage tracking',
+				'id'   => 'regenerate_thumbnails',
+				'name' => 'Regenerate shop thumbnails',
 			),
 			$data
 		);
@@ -434,40 +434,6 @@ class WC_Tests_REST_System_Status extends WC_REST_Unit_Test_Case {
 		$this->assertArrayHasKey( 'description', $properties );
 		$this->assertArrayHasKey( 'success', $properties );
 		$this->assertArrayHasKey( 'message', $properties );
-	}
-
-	/**
-	 * Test execute_tool() with the "add_order_indexes" tool.
-	 *
-	 * @since 3.5.0
-	 */
-	public function test_execute_system_tool_add_order_indexes() {
-		wp_set_current_user( $this->user );
-
-		$order1 = WC_Helper_Order::create_order();
-		$order2 = WC_Helper_Order::create_order();
-
-		// Make sure order has shipping name set.
-		$order2->set_shipping_first_name( 'Firstname' );
-		$order2->set_shipping_last_name( 'Surname' );
-		$order2->save();
-
-		delete_post_meta( $order1->get_id(), '_billing_address_index' );
-		delete_post_meta( $order1->get_id(), '_shipping_address_index' );
-		delete_post_meta( $order2->get_id(), '_billing_address_index' );
-		delete_post_meta( $order2->get_id(), '_shipping_address_index' );
-
-		$controller = new WC_REST_System_Status_Tools_Controller();
-		$response   = $this->server->dispatch( new WP_REST_Request( 'POST', '/wc/v3/system_status/tools/add_order_indexes' ) );
-		$data       = $response->get_data();
-
-		$this->assertTrue( $data['success'] );
-		$this->assertNotEmpty( get_post_meta( $order1->get_id(), '_billing_address_index', true ) );
-		$this->assertNotEmpty( get_post_meta( $order2->get_id(), '_billing_address_index', true ) );
-
-		$this->assertEmpty( get_post_meta( $order1->get_id(), '_shipping_address_index', true ) );
-		$this->assertNotEmpty( get_post_meta( $order2->get_id(), '_shipping_address_index', true ) );
-
 	}
 
 	/**

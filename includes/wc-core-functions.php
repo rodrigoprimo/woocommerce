@@ -34,7 +34,7 @@ require WC_ABSPATH . 'includes/wc-webhook-functions.php';
  * Filters on data used in admin and frontend.
  */
 add_filter( 'woocommerce_coupon_code', 'html_entity_decode' );
-add_filter( 'woocommerce_coupon_code', 'sanitize_text_field' );
+add_filter( 'woocommerce_coupon_code', 'wc_sanitize_coupon_code' );
 add_filter( 'woocommerce_coupon_code', 'wc_strtolower' );
 add_filter( 'woocommerce_stock_amount', 'intval' ); // Stock amounts are integers by default.
 add_filter( 'woocommerce_shipping_rate_label', 'sanitize_text_field' ); // Shipping rate label.
@@ -869,10 +869,11 @@ function wc_print_js() {
  * @param  string  $value  Value of the cookie.
  * @param  integer $expire Expiry of the cookie.
  * @param  bool    $secure Whether the cookie should be served only over https.
+ * @param  bool    $httponly Whether the cookie is only accessible over HTTP, not scripting languages like JavaScript. @since 3.6.0
  */
-function wc_setcookie( $name, $value, $expire = 0, $secure = false ) {
+function wc_setcookie( $name, $value, $expire = 0, $secure = false, $httponly = false ) {
 	if ( ! headers_sent() ) {
-		setcookie( $name, $value, $expire, COOKIEPATH ? COOKIEPATH : '/', COOKIE_DOMAIN, $secure, apply_filters( 'woocommerce_cookie_httponly', false, $name, $value, $expire, $secure ) );
+		setcookie( $name, $value, $expire, COOKIEPATH ? COOKIEPATH : '/', COOKIE_DOMAIN, $secure, apply_filters( 'woocommerce_cookie_httponly', $httponly, $name, $value, $expire, $secure ) );
 	} elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 		headers_sent( $file, $line );
 		trigger_error( "{$name} cookie cannot be set - headers already sent by {$file} on line {$line}", E_USER_NOTICE ); // @codingStandardsIgnoreLine
@@ -2015,10 +2016,18 @@ function wc_enable_wc_plugin_headers( $headers ) {
 		include_once dirname( __FILE__ ) . '/admin/plugin-updates/class-wc-plugin-updates.php';
 	}
 
-	$headers['WCRequires'] = WC_Plugin_Updates::VERSION_REQUIRED_HEADER;
-	$headers['WCTested']   = WC_Plugin_Updates::VERSION_TESTED_HEADER;
+	// WC requires at least - allows developers to define which version of WooCommerce the plugin requires to run.
+	$headers[] = WC_Plugin_Updates::VERSION_REQUIRED_HEADER;
+
+	// WC tested up to - allows developers  to define which version of WooCommerce they have tested up to.
+	$headers[] = WC_Plugin_Updates::VERSION_TESTED_HEADER;
+
+	// Woo - This is used in WooCommerce extensions and is picked up by the helper.
+	$headers[] = 'Woo';
+
 	return $headers;
 }
+add_filter( 'extra_theme_headers', 'wc_enable_wc_plugin_headers' );
 add_filter( 'extra_plugin_headers', 'wc_enable_wc_plugin_headers' );
 
 /**

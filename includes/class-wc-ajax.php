@@ -42,7 +42,7 @@ class WC_AJAX {
 			wc_maybe_define_constant( 'DOING_AJAX', true );
 			wc_maybe_define_constant( 'WC_DOING_AJAX', true );
 			if ( ! WP_DEBUG || ( WP_DEBUG && ! WP_DEBUG_DISPLAY ) ) {
-				@ini_set( 'display_errors', 0 ); // Turn off display_errors during AJAX events to prevent malformed JSON. phpcs
+				@ini_set( 'display_errors', 0 ); // Turn off display_errors during AJAX events to prevent malformed JSON.
 			}
 			$GLOBALS['wpdb']->hide_errors();
 		}
@@ -92,8 +92,6 @@ class WC_AJAX {
 
 	/**
 	 * Hook in methods - uses WordPress ajax handlers (admin-ajax).
-	 *
-	 * Format: woocommerce_EVENT => value nopriv.
 	 */
 	public static function add_ajax_events() {
 		$ajax_events_nopriv = array(
@@ -208,7 +206,7 @@ class WC_AJAX {
 		check_ajax_referer( 'apply-coupon', 'security' );
 
 		if ( ! empty( $_POST['coupon_code'] ) ) {
-			WC()->cart->add_discount( sanitize_text_field( wp_unslash( $_POST['coupon_code'] ) ) );
+			WC()->cart->add_discount( wc_format_coupon_code( wp_unslash( $_POST['coupon_code'] ) ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		} else {
 			wc_add_notice( WC_Coupon::get_generic_coupon_error( WC_Coupon::E_WC_COUPON_PLEASE_ENTER ), 'error' );
 		}
@@ -223,7 +221,7 @@ class WC_AJAX {
 	public static function remove_coupon() {
 		check_ajax_referer( 'remove-coupon', 'security' );
 
-		$coupon = isset( $_POST['coupon'] ) ? wc_clean( wp_unslash( $_POST['coupon'] ) ) : false;
+		$coupon = isset( $_POST['coupon'] ) ? wc_format_coupon_code( wp_unslash( $_POST['coupon'] ) ) : false; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 		if ( empty( $coupon ) ) {
 			wc_add_notice( __( 'Sorry there was a problem removing this coupon.', 'woocommerce' ), 'error' );
@@ -1155,7 +1153,14 @@ class WC_AJAX {
 				throw new Exception( __( 'Invalid coupon', 'woocommerce' ) );
 			}
 
-			$result = $order->apply_coupon( wc_clean( wp_unslash( $_POST['coupon'] ) ) );
+			// Add user ID so validation for coupon limits works.
+			$user_id_arg = isset( $_POST['user_id'] ) ? absint( $_POST['user_id'] ) : 0;
+
+			if ( $user_id_arg ) {
+				$order->set_customer_id( $user_id_arg );
+			}
+
+			$result = $order->apply_coupon( wc_format_coupon_code( wp_unslash( $_POST['coupon'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.NoNonceVerification, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
 			if ( is_wp_error( $result ) ) {
 				throw new Exception( html_entity_decode( wp_strip_all_tags( $result->get_error_message() ) ) );
@@ -1207,7 +1212,7 @@ class WC_AJAX {
 				throw new Exception( __( 'Invalid coupon', 'woocommerce' ) );
 			}
 
-			$order->remove_coupon( wc_clean( wp_unslash( $_POST['coupon'] ) ) );
+			$order->remove_coupon( wc_format_coupon_code( wp_unslash( $_POST['coupon'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.NoNonceVerification, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			$order->calculate_taxes( $calculate_tax_args );
 			$order->calculate_totals( false );
 
@@ -1524,7 +1529,9 @@ class WC_AJAX {
 	public static function json_search_products( $term = '', $include_variations = false ) {
 		check_ajax_referer( 'search-products', 'security' );
 
-		$term = isset( $_GET['term'] ) ? (string) wc_clean( wp_unslash( $_GET['term'] ) ) : '';
+		if ( empty( $term ) && isset( $_GET['term'] ) ) {
+			$term = (string) wc_clean( wp_unslash( $_GET['term'] ) );
+		}
 
 		if ( empty( $term ) ) {
 			wp_die();
@@ -1555,7 +1562,9 @@ class WC_AJAX {
 			$managing_stock = $product_object->managing_stock();
 
 			if ( $managing_stock && ! empty( $_GET['display_stock'] ) ) {
-				$formatted_name .= ' &ndash; ' . wc_format_stock_for_display( $product_object );
+				$stock_amount    = $product_object->get_stock_quantity();
+				/* Translators: %d stock amount */
+				$formatted_name .= ' &ndash; ' . sprintf( __( 'Stock: %d', 'woocommerce' ), wc_format_stock_quantity_for_display( $stock_amount, $product_object ) );
 			}
 
 			$products[ $product_object->get_id() ] = rawurldecode( $formatted_name );

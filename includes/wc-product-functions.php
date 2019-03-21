@@ -1271,12 +1271,36 @@ function wc_deferred_product_sync( $product_id ) {
 }
 
 /**
+ * See if the lookup table is being generated already.
+ *
+ * @since 3.6.0
+ * @return bool
+ */
+function wc_update_product_lookup_tables_is_running() {
+	$table_updates_pending = WC()->queue()->search(
+		array(
+			'status'   => 'pending',
+			'group'    => 'wc_update_product_lookup_tables',
+			'per_page' => 1,
+		)
+	);
+
+	return (bool) count( $table_updates_pending );
+}
+
+/**
  * Populate lookup table data for products.
  *
  * @since 3.6.0
  */
 function wc_update_product_lookup_tables() {
 	global $wpdb;
+
+	$is_cli = defined( 'WP_CLI' ) && WP_CLI;
+
+	if ( ! $is_cli ) {
+		WC_Admin_Notices::add_notice( 'regenerating_lookup_table' );
+	}
 
 	// Make a row per product in lookup table.
 	$wpdb->query(
@@ -1290,7 +1314,7 @@ function wc_update_product_lookup_tables() {
 		"
 	);
 
-	// Queue update events.
+	// List of column names in the lookup table we need to populate.
 	$columns = array(
 		'min_price',
 		'max_price',
@@ -1301,20 +1325,25 @@ function wc_update_product_lookup_tables() {
 		'total_sales',
 		'downloadable',
 		'virtual',
+		'onsale',
 	);
 
 	foreach ( $columns as $index => $column ) {
-		WC()->queue()->schedule_single(
-			time() + $index,
-			'wc_update_product_lookup_tables_column',
-			array(
-				'column' => $column,
-			),
-			'wc_update_product_lookup_tables'
-		);
+		if ( $is_cli ) {
+			wc_update_product_lookup_tables_column( $column );
+		} else {
+			WC()->queue()->schedule_single(
+				time() + $index,
+				'wc_update_product_lookup_tables_column',
+				array(
+					'column' => $column,
+				),
+				'wc_update_product_lookup_tables'
+			);
+		}
 	}
 
-	// Rating counts are serialised so add them gradually using queue.
+	// Rating counts are serialised so they have to be unserialised before populating the lookup table.
 	$rating_count_rows = $wpdb->get_results(
 		"
 		SELECT post_id, meta_value FROM {$wpdb->postmeta}
@@ -1326,18 +1355,23 @@ function wc_update_product_lookup_tables() {
 	);
 
 	if ( $rating_count_rows ) {
-		$rating_count_rows = array_chunk( $rating_count_rows, 50 );
-		$index             = 10;
+		if ( $is_cli ) {
+			wc_update_product_lookup_tables_rating_count( $rating_count_rows );
+		} else {
+			$rating_count_rows = array_chunk( $rating_count_rows, 50 );
+			$index             = count( $columns ) + 1;
 
-		foreach ( $rating_count_rows as $rows ) {
-			WC()->queue()->schedule_single(
-				time() + $index,
-				'wc_update_product_lookup_tables_rating_count',
-				array(
-					'rows' => $rows,
-				),
-				'wc_update_product_lookup_tables'
-			);
+			foreach ( $rating_count_rows as $rows ) {
+				WC()->queue()->schedule_single(
+					time() + $index,
+					'wc_update_product_lookup_tables_rating_count',
+					array(
+						'rows' => $rows,
+					),
+					'wc_update_product_lookup_tables'
+				);
+				$index ++;
+			}
 		}
 	}
 }
@@ -1421,16 +1455,38 @@ function wc_update_product_lookup_tables_column( $column ) {
 		case 'downloadable':
 		case 'virtual':
 			$column = esc_sql( $column );
+
 			$wpdb->query(
 				"
 				UPDATE
 					{$wpdb->wc_product_meta_lookup} lookup_table
 					LEFT JOIN {$wpdb->postmeta} meta1 ON lookup_table.product_id = meta1.post_id AND meta1.meta_key = '_virtual'
 				SET
-					lookup_table.`{$column}` = 1
-				WHERE
-					meta1.meta_value = 'yes'
+					lookup_table.`{$column}` = IF ( meta1.meta_value = 'yes', 1, 0 )
 				"
+			);
+			break;
+		case 'onsale':
+			$column   = esc_sql( $column );
+			$decimals = absint( wc_get_price_decimals() );
+
+			$wpdb->query(
+				$wpdb->prepare(
+					"
+					UPDATE
+						{$wpdb->wc_product_meta_lookup} lookup_table
+						LEFT JOIN {$wpdb->postmeta} meta1 ON lookup_table.product_id = meta1.post_id AND meta1.meta_key = '_price'
+						LEFT JOIN {$wpdb->postmeta} meta2 ON lookup_table.product_id = meta2.post_id AND meta2.meta_key = '_sale_price'
+					SET
+						lookup_table.`{$column}` = IF (
+							CAST( meta1.meta_value AS DECIMAL ) >= 0
+							AND CAST( meta2.meta_value AS CHAR ) != ''
+							AND CAST( meta1.meta_value AS DECIMAL( 10, %d ) ) = CAST( meta2.meta_value AS DECIMAL( 10, %d ) )
+						, 1, 0 )
+					",
+					$decimals,
+					$decimals
+				)
 			);
 			break;
 	}
