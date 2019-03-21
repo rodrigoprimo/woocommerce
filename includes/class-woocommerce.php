@@ -6,7 +6,7 @@
  * @since   3.2.0
  */
 
-defined( 'ABSPATH' ) || exit;
+defined('ABSPATH' ) || exit;
 
 /**
  * Main WooCommerce Class.
