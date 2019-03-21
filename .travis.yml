@@ -47,10 +47,8 @@ before_script:
   - |
     # Install wpcs globally if needed:
     if [[ ${RUN_PHPCS} == 1 ]] && [[ ${TRAVIS_PHP_VERSION:0:3} != "5.2" ]]; then
-      composer global require wp-coding-standards/wpcs
-      phpcs --config-show installed_paths
-      phpcs --config-set installed_paths $HOME/.composer/vendor/wp-coding-standards/wpcs
-      phpcs --config-show installed_paths
+      composer require woocommerce/woocommerce-sniffs
+      ./vendor/bin/phpcs --config-show installed_paths
     fi
 
 script:
