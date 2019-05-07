@@ -68,10 +68,6 @@
     "node": ">=10.15.0",
     "npm": ">=6.4.1"
   },
-  "dependencies": {
-    "@woocommerce/block-library": "2.0.1",
-    "github-contributors-list": "https://github.com/woocommerce/github-contributors-list/tarball/master"
-  },
   "husky": {
     "hooks": {
       "pre-commit": "lint-staged"
