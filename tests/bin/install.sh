@@ -171,6 +171,7 @@ install_e2e_site() {
 
 		set -ev
 		npm i -g npm
+		npm cache clear --force
 		npm install
 		export NODE_CONFIG_DIR="./tests/e2e-tests/config"
 
