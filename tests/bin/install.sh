@@ -170,6 +170,7 @@ install_e2e_site() {
 		fi
 
 		set -ev
+		npm i -g npm
 		npm install
 		export NODE_CONFIG_DIR="./tests/e2e-tests/config"
 
