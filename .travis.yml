@@ -61,7 +61,7 @@ before_script:
   - |
     # Install WP Test suite, install PHPUnit globally if needed:
     if [[ ! -z "$WP_VERSION" ]]; then
-      bash tests/bin/install.sh woocommerce_test root '' localhost $WP_VERSION
+      bash tests/bin/install.sh woocommerce_test root '' localhost $WP_VERSION || exit "$?"
       # PHP 5.2 does not have composer, do not try to run it.
       if [[ ${TRAVIS_PHP_VERSION:0:3} != "5.2" ]]; then
         composer global require "phpunit/phpunit=4.8.*|6.5.*"
