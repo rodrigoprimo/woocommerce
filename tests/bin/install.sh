@@ -172,7 +172,7 @@ install_e2e_site() {
 		set -ev
 		npm i -g npm
 		npm cache clear --force
-		npm install
+		npm install || exit "$?"
 		export NODE_CONFIG_DIR="./tests/e2e-tests/config"
 
 		# Set up nginx to run the server
