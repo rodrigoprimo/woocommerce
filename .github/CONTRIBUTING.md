@@ -39,7 +39,6 @@ https://woocommerce.com/contact-us/
 - The WooCommerce Help and Share Facebook group
 
 **Customizations**
-- [WooExperts](https://woocommerce.com/experts/)
 - [Codeable](https://codeable.io/)
 
 ## Coding Guidelines
