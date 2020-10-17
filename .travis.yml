@@ -10,8 +10,6 @@ cache:
 # Since Xenial services are not started by default, we need to instruct it below to start.
 services:
   - xvfb
-  - mysql
-  - docker
 
 # Test main supported versions of PHP against latest WP.
 php:
